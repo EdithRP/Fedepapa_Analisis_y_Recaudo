@@ -1,0 +1,80 @@
+// --- DIMENSIONES (Tus Tablas Maestras) ---
+
+Table Dim_Departamento {
+  id_depto_sk integer [primary key]
+  nombre_depto_estandar varchar
+}
+
+Table Dim_Variedad {
+  id_variedad_sk integer [primary key]
+  nombre_variedad_limpio varchar
+}
+
+Table Dim_Tiempo {
+  id_tiempo_sk date [primary key] // El corazón del modelo
+  anio integer
+  mes_num integer
+  mes_nombre varchar
+  semana_anio integer
+  dia_semana integer
+}
+
+// --- HECHOS (Tus tablas con TODAS sus columnas) ---
+
+Table Fact_Precios {
+  id_precio_sk integer [primary key]
+  // Columnas Originales (No tocamos nada)
+  ciudad varchar
+  departamento varchar
+  year integer
+  mes varchar
+  semana integer
+  variedad varchar
+  departamento2 varchar
+  fecha3 date
+  precio float
+  longitud varchar
+  latitud varchar
+  // Llaves para conectar
+  id_depto_fk integer
+  id_variedad_fk integer
+  id_tiempo_fk date
+}
+
+Table Fact_Produccion {
+  id_produccion_sk integer [primary key]
+  // Columnas Originales
+  anio_orig integer
+  mes_orig integer
+  semestre_orig varchar
+  departamento_orig varchar
+  produccion_ton float
+  // Llaves para conectar
+  id_depto_fk integer
+  id_tiempo_fk date // Se mapea al día 1 del mes
+}
+
+Table Fact_Recaudo {
+  id_recaudo_sk integer [primary key]
+  // Columnas Originales
+  recaudador varchar
+  cuota float
+  intereses float
+  canal varchar
+  departamento varchar
+  mes_recaudo_orig varchar
+  // Llaves para conectar
+  id_depto_fk integer
+  id_tiempo_fk date // Se mapea al día 1 del mes
+}
+
+// RELACIONES
+Ref: Fact_Precios.id_depto_fk > Dim_Departamento.id_depto_sk
+Ref: Fact_Produccion.id_depto_fk > Dim_Departamento.id_depto_sk
+Ref: Fact_Recaudo.id_depto_fk > Dim_Departamento.id_depto_sk
+
+Ref: Fact_Precios.id_variedad_fk > Dim_Variedad.id_variedad_sk
+
+Ref: Fact_Precios.id_tiempo_fk > Dim_Tiempo.id_tiempo_sk
+Ref: Fact_Produccion.id_tiempo_fk > Dim_Tiempo.id_tiempo_sk
+Ref: Fact_Recaudo.id_tiempo_fk > Dim_Tiempo.id_tiempo_sk
