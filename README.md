@@ -20,25 +20,55 @@ En esta fase se realizó una arquitectura de datos preliminar sin aplicar transf
 
 ## ⚙️ 2. Proceso de ETL (Python)
 
-Se optó por **Python** para el desarrollo del pipeline de datos. Aunque el volumen actual permitiría el uso de herramientas de hoja de cálculo, se priorizó la **escalabilidad, audibilidad y reproducibilidad**, alineándome con los criterios de evaluación de "Integración y calidad del procesamiento".
+Se optó por **Python** para el desarrollo del pipeline de datos. Aunque el volumen actual permitiría el uso de herramientas de hoja de cálculo, se priorizó la **escalabilidad y reproducibilidad**, alineándome con los criterios de evaluación de "Integración y calidad del procesamiento".
 
-### Estructura de Scripts (`/ETL`)
-El flujo principal se gestiona desde el archivo `limpieza.py`, el cual coordina tres módulos especializados:
+### Estructura de Scripts ¨[(`/ETL`)](https://github.com/EdithRP/Fedepapa_Analisis_y_Recaudo/tree/main/ETL)
+El flujo principal se gestiona desde el archivo ¨[`limpieza.py`](https://github.com/EdithRP/Fedepapa_Analisis_y_Recaudo/blob/main/ETL/limpieza.ipynb), el cual coordina tres módulos especializados:
 
-1.  **Carga y Limpieza Técnica:** Estandarización de encabezados y saneamiento de cadenas de texto.
+1.  **Carga y Limpieza Técnica:** Estandarización de encabezados y carga de archivos.
 2.  **Normalización de Fechas:** Unificación de formatos cronológicos para permitir el cruce de datos semanales (precios) con mensuales (recaudo y producción).
-3.  **Normalización Geográfica:** Implementación de la función `departamentos()`, eliminando discrepancias de escritura para garantizar *Joins* precisos.
+3.  **Normalización Geográfica:** Implementación de la función [`normalizar_departamentos()`](https://github.com/EdithRP/Fedepapa_Analisis_y_Recaudo/blob/main/ETL/normalizacion_departamento.ipynb), eliminando discrepancias de escritura para garantizar *Joins* precisos.
 
 ### Diagnóstico de Calidad (Data Profiling)
 Durante el proceso se detectó información faltante en las columnas `latitud` y `longitud` de la base de precios.
-* **Criterio de Analista:** Se decidió **no imputar** estos datos. En esta etapa, el análisis se centra en la agregación departamental y no en la georreferenciación puntual. Mantener la data real evita introducir sesgos artificiales en el modelo estadístico.
+* **Criterio de Analisis:** Se decidió **no imputar** estos datos. En esta etapa, el análisis se centra en la agregación departamental y no en la georreferenciación puntual. Mantener la data real evita introducir sesgos artificiales en el modelo estadístico.
+
+---
+## 🏗️ 3. Arquitectura de Datos y Modelado en BigQuery
+
+Para garantizar la escalabilidad, se implementó una arquitectura de capas (Staging y Warehouse) en la región `southamerica-west1`.
+
+### Paso 3.1: Ingesta Automática a BigQuery
+Se desarrolló un pipeline de carga utilizando la librería `pandas-gbq` y el SDK de Google Cloud. Este proceso garantiza que los datos limpios de la fase anterior se alojen de forma segura en el dataset de Staging.
+
+* **Script de Carga:** [Ver Script de Carga en Python](https://github.com/EdithRP/Fedepapa_Analisis_y_Recaudo/blob/main/cargar_bigquery.py) 
+* **Dataset de Destino:** `sgt_fedepapa`.
+
+### Paso 3.2: Creación de Tablas de Dimensión
+Para eliminar la redundancia y permitir un análisis temporal y geográfico preciso, se crearon tablas maestras mediante SQL:
+
+* **Dimensión Tiempo (`dim_tiempo`)**: Centraliza la jerarquía de Año, Mes (en español), Semestre y Número de Semana. Es vital para unir la producción mensual con los precios semanales.
+* **Dimensión Geografía (`dim_geografia`)**: Unifica los nombres de los departamentos bajo el campo `departamento_normalizado`, resolviendo discrepancias de escritura entre las fuentes originales.
+
+
+### Paso 3.3: Creación de Tablas de Hechos (Métricas)
+Se generaron tablas de hechos (`fct_`) normalizadas que contienen exclusivamente las métricas necesarias para las actividades de la prueba, eliminando columnas de texto redundantes:
+
+* **`fct_precios`**: Registro histórico de precios por variedad y ciudad.
+* **`fct_produccion`**: Cifras de producción donde se aplicó la lógica de conversión de Toneladas a Kilogramos.
+* **`fct_recaudo`**: Detalle financiero del recaudo real e intereses de mora.
+
+### 💡 Resumen del Proceso de Ingeniería
+Se optó por este proceso de **Modelado Dimensional (Star Schema)** en BigQuery por tres razones fundamentales:
+
+1.  **Optimización en Power BI**: Los modelos en estrella son significativamente más rápidos y eficientes para el motor DAX, evitando relaciones de "muchos a muchos".
+2.  **Integridad de Datos**: Al centralizar los nombres de meses y departamentos en tablas únicas, se garantiza que no existan inconsistencias al filtrar la información.
+3.  **Preparación para el Análisis**: Al realizar la conversión de unidades (Ton a Kg) y la limpieza geográfica en el Warehouse (SQL), se entrega un dato "listo para consumir", cumpliendo con los estándares de un entorno profesional de Ingeniería de Datos.
 
 ---
 
-## ☁️ 3. Arquitectura en la Nube (BigQuery)
-
-Para demostrar el máximo potencial técnico, la información procesada se cargó en **Google BigQuery**. 
-
-* **Capa de Staging (STG):** Los datos limpios de Python aterrizan en tablas de staging que preservan todas las columnas originales.
-* **Dimensión de Tiempo Dinámica:** Se implementó una lógica SQL que genera un calendario automático desde la fecha mínima de recaudo hasta el `CURRENT_DATE`, asegurando que el modelo sea autosuficiente para futuros reportes.
-* **Capa Semántica (Views):** Los cálculos de brechas y KPIs se realizan mediante vistas SQL, entregando a **Power BI** datos ya transformados para un rendimiento óptimo.
+## 🚀 4. Actividades de la Prueba
+1. **Actividad 1**: Estimación mensual del recaudo potencial integrando producción y precios.
+   
+3. **Actividad 2**: Análisis de brechas (Potencial vs Real) y volatilidad.
+4. **Actividad 3**: Cálculo de concentración (HHI) y segmentación de recaudadores.
