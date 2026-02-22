@@ -14,7 +14,7 @@ En esta fase se realizó una arquitectura de datos preliminar sin aplicar transf
 > [!TIP]
 > **Recursos de Diseño:**
 > * 🔗 [Modelo Relacional Interactivo (dbdiagram.io)](https://dbdiagram.io/d/6999ced5bd82f5fce261dd12)
-> * 🖼️ [Visualización de la Ruta de Datos](https://github.com/EdithRP/Fedepapa_Analisis_y_Recaudo/blob/main/img/modeloinicial.png)
+     ![Visualización de la Ruta de Datos](https://github.com/EdithRP/Fedepapa_Analisis_y_Recaudo/blob/main/img/modeloinicial.png)
 
 ---
 
@@ -47,16 +47,16 @@ Se desarrolló un pipeline de carga utilizando la librería `pandas-gbq` y el SD
 ### Paso 3.2: Creación de Tablas de Dimensión
 Para eliminar la redundancia y permitir un análisis temporal y geográfico preciso, se crearon tablas maestras mediante SQL:
 
-* **Dimensión Tiempo (`dim_tiempo`)**: Centraliza la jerarquía de Año, Mes (en español), Semestre y Número de Semana. Es vital para unir la producción mensual con los precios semanales.
-* **Dimensión Geografía (`dim_geografia`)**: Unifica los nombres de los departamentos bajo el campo `departamento_normalizado`, resolviendo discrepancias de escritura entre las fuentes originales.
+* **Dimensión Tiempo (`dim_tiempo`)**: Centraliza la jerarquía de Año, Mes (en español), Semestre y Número de Semana. Es vital para unir la producción mensual con los precios semanales. ![dim_tiempo](https://github.com/EdithRP/Fedepapa_Analisis_y_Recaudo/blob/main/img/dim_fecha.png)
+* **Dimensión Geografía (`dim_geografia`)**: Unifica los nombres de los departamentos bajo el campo `departamento_normalizado`, resolviendo discrepancias de escritura entre las fuentes originales. ![dim_geografia](https://github.com/EdithRP/Fedepapa_Analisis_y_Recaudo/blob/main/img/dim_geografia.png)
 
 
 ### Paso 3.3: Creación de Tablas de Hechos (Métricas)
 Se generaron tablas de hechos (`fct_`) normalizadas que contienen exclusivamente las métricas necesarias para las actividades de la prueba, eliminando columnas de texto redundantes:
 
-* **`fct_precios`**: Registro histórico de precios por variedad y ciudad.
-* **`fct_produccion`**: Cifras de producción donde se aplicó la lógica de conversión de Toneladas a Kilogramos.
-* **`fct_recaudo`**: Detalle financiero del recaudo real e intereses de mora.
+* **`fct_precios`**: Registro histórico de precios por variedad y ciudad. ![fact_precios](https://github.com/EdithRP/Fedepapa_Analisis_y_Recaudo/blob/main/img/fact_precios.png)
+* **`fct_produccion`**: Cifras de producción donde se aplicó la lógica de conversión de Toneladas a Kilogramos. ![fact_produccion](https://github.com/EdithRP/Fedepapa_Analisis_y_Recaudo/blob/main/img/fact_produccion.png)
+* **`fct_recaudo`**: Detalle financiero del recaudo real e intereses de mora. ![dim_recaudo](https://github.com/EdithRP/Fedepapa_Analisis_y_Recaudo/blob/main/img/fact_recaudo.png)
 
 ### 💡 Resumen del Proceso de Ingeniería
 Se optó por este proceso de **Modelado Dimensional (Star Schema)** en BigQuery por tres razones fundamentales:
