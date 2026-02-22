@@ -28,7 +28,7 @@ def cargar_desde_local_a_bigquery(carpeta_datos="data_lista_para_subir", dataset
             
             # Forzar la columna de fecha a formato datetime si existe
             if 'fecha_normalizada' in df_final.columns:
-                df_final['fecha_normalizada'] = pd.to_datetime(df_final['fecha_normalizada'])
+                df_final['fecha_normalizada'] = pd.to_datetime(df_final['fecha_normalizada']).dt.date
             
             destino_tabla = f"{dataset_id}.{nombre_tabla.lower()}"
             
