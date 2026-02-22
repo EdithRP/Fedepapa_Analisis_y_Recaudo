@@ -1,0 +1,20 @@
+# Ignorar archivos de claves y credenciales
+llave_google.json
+*.json
+.env
+
+# Entornos virtuales
+venv/
+env/
+.env/
+
+# Archivos compilados en python y cachés
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+
+# Archivos de la nube o locales que no se quieren trackear
+*.csv
+*.xlsx
+.DS_Store
