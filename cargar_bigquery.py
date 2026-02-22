@@ -3,7 +3,7 @@ import pandas as pd
 import pandas_gbq
 from google.oauth2 import service_account
 
-def cargar_desde_local_a_bigquery(carpeta_datos="data_lista_para_subir", dataset_id="dataset_Fedepapa"):
+def cargar_desde_local_a_bigquery(carpeta_datos="data_lista_para_subir", dataset_id="silken-champion-476819-c6.sgt_fedepapa"):
     """
     Lee archivos CSV desde una carpeta local y los sube a Google BigQuery.
     """
@@ -40,7 +40,8 @@ def cargar_desde_local_a_bigquery(carpeta_datos="data_lista_para_subir", dataset
                 destination_table=destino_tabla,
                 project_id=project_id,
                 credentials=credenciales,
-                if_exists='replace'
+                if_exists='replace',
+                location='southamerica-west1' # Fuerza a que use la región de Chile
             )
             
             print(f"✅ ¡{nombre_tabla.upper()} guardado con éxito en la nube!")
