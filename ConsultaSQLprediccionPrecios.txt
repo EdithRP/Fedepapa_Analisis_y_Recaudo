@@ -1,0 +1,98 @@
+CREATE OR REPLACE TABLE `silken-champion-476819-c6.dw_Fedepapa.fct_recaudo_potencial` AS
+WITH precios_base AS (
+    SELECT
+        DATE_TRUNC(p.id_fecha, MONTH) AS id_fecha,
+        EXTRACT(MONTH FROM p.id_fecha) AS mes_num,
+        g.departamento_normalizado,
+        AVG(p.precio) AS precio_mes_depto
+    FROM `silken-champion-476819-c6.dw_Fedepapa.fct_precios` p
+    JOIN `silken-champion-476819-c6.dw_Fedepapa.dim_geografia` g ON p.departamento = g.departamento
+    GROUP BY 1, 2, 3
+),
+-- 1. ESTACIONALIDAD NACIONAL (Para departamentos sin historia como Caldas)
+estacionalidad_nacional AS (
+    SELECT 
+        EXTRACT(MONTH FROM id_fecha) AS mes_num,
+        AVG(precio) AS precio_tipico_mes_nacional
+    FROM `silken-champion-476819-c6.dw_Fedepapa.fct_precios`
+    GROUP BY 1
+),
+-- 2. ÚLTIMO PRECIO NACIONAL (El ancla para departamentos sin historia)
+ultimo_precio_nacional AS (
+    SELECT 
+        AVG(precio) AS ultimo_precio_conocido_nac
+    FROM `silken-champion-476819-c6.dw_Fedepapa.fct_precios`
+    WHERE id_fecha = (SELECT MAX(id_fecha) FROM `silken-champion-476819-c6.dw_Fedepapa.fct_precios`)
+),
+precio_nacional_mes_hist AS (
+    SELECT 
+        DATE_TRUNC(id_fecha, MONTH) AS id_fecha,
+        AVG(precio) AS precio_nacional_real
+    FROM `silken-champion-476819-c6.dw_Fedepapa.fct_precios`
+    GROUP BY 1
+),
+estacionalidad_depto AS (
+    SELECT 
+        departamento_normalizado,
+        mes_num,
+        AVG(precio_mes_depto) AS precio_tipico_mes_depto
+    FROM precios_base
+    GROUP BY 1, 2
+),
+ultimo_precio_depto AS (
+    SELECT DISTINCT
+        departamento_normalizado,
+        LAST_VALUE(precio_mes_depto) OVER (
+            PARTITION BY departamento_normalizado 
+            ORDER BY id_fecha 
+            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+        ) AS ultimo_precio_conocido_depto
+    FROM precios_base
+),
+produccion_final AS (
+    SELECT
+        DATE_TRUNC(pr.id_fecha, MONTH) AS id_fecha,
+        EXTRACT(MONTH FROM pr.id_fecha) AS mes_num,
+        g.departamento_normalizado,
+        SUM(pr.produccion_kg) AS produccion_kg
+    FROM `silken-champion-476819-c6.dw_Fedepapa.fct_produccion` pr
+    JOIN `silken-champion-476819-c6.dw_Fedepapa.dim_geografia` g ON pr.departamento = g.departamento
+    GROUP BY 1, 2, 3
+)
+SELECT
+    prod.id_fecha,
+    prod.departamento_normalizado,
+    prod.produccion_kg,
+    
+    -- PRECIO APLICADO CON RESCATE PARA CALDAS 2026
+    ROUND(COALESCE(
+        pb.precio_mes_depto, -- 1. Real si existe
+        -- 2. Proyección Depto (Si tiene historia)
+        IF(EXTRACT(YEAR FROM prod.id_fecha) >= 2026, 
+            (upd.ultimo_precio_conocido_depto * (ed.precio_tipico_mes_depto / NULLIF((SELECT AVG(precio_mes_depto) FROM precios_base WHERE departamento_normalizado = prod.departamento_normalizado), 0))) * 1.005, 
+            NULL),
+        -- 3. Proyección Nacional (Para Caldas en 2026)
+        IF(EXTRACT(YEAR FROM prod.id_fecha) >= 2026,
+            ((SELECT ultimo_precio_conocido_nac FROM ultimo_precio_nacional) * (en.precio_tipico_mes_nacional / (SELECT AVG(precio) FROM `silken-champion-476819-c6.dw_Fedepapa.fct_precios`))) * 1.005,
+            NULL),
+        -- 4. Histórico Nacional (Para Caldas < 2026)
+        pnmh.precio_nacional_real
+    ), 0) AS precio_promedio_aplicado,
+
+    -- El resto de cálculos (Valor Económico y Recaudo) heredan este COALESCE
+    ROUND(prod.produccion_kg * COALESCE(pb.precio_mes_depto, IF(EXTRACT(YEAR FROM prod.id_fecha) >= 2026, (upd.ultimo_precio_conocido_depto * (ed.precio_tipico_mes_depto / NULLIF((SELECT AVG(precio_mes_depto) FROM precios_base WHERE departamento_normalizado = prod.departamento_normalizado), 0))) * 1.005, NULL), IF(EXTRACT(YEAR FROM prod.id_fecha) >= 2026, ((SELECT ultimo_precio_conocido_nac FROM ultimo_precio_nacional) * (en.precio_tipico_mes_nacional / (SELECT AVG(precio) FROM `silken-champion-476819-c6.dw_Fedepapa.fct_precios`))) * 1.005, NULL), pnmh.precio_nacional_real), 0) AS valor_economico_produccion,
+    
+    ROUND(prod.produccion_kg * COALESCE(pb.precio_mes_depto, IF(EXTRACT(YEAR FROM prod.id_fecha) >= 2026, (upd.ultimo_precio_conocido_depto * (ed.precio_tipico_mes_depto / NULLIF((SELECT AVG(precio_mes_depto) FROM precios_base WHERE departamento_normalizado = prod.departamento_normalizado), 0))) * 1.005, NULL), IF(EXTRACT(YEAR FROM prod.id_fecha) >= 2026, ((SELECT ultimo_precio_conocido_nac FROM ultimo_precio_nacional) * (en.precio_tipico_mes_nacional / (SELECT AVG(precio) FROM `silken-champion-476819-c6.dw_Fedepapa.fct_precios`))) * 1.005, NULL), pnmh.precio_nacional_real), 0) * 0.01 AS recaudo_potencial_estimado,
+
+    CASE 
+        WHEN pb.precio_mes_depto IS NOT NULL THEN 'Promedio Mes Depto'
+        WHEN upd.ultimo_precio_conocido_depto IS NOT NULL THEN 'Proyección Estacional Depto'
+        WHEN EXTRACT(YEAR FROM prod.id_fecha) >= 2026 THEN 'Proyección Estacional Nacional (Caldas)'
+        ELSE 'Rescate Nacional Histórico'
+    END AS origen_precio
+FROM produccion_final prod
+LEFT JOIN precios_base pb ON prod.id_fecha = pb.id_fecha AND prod.departamento_normalizado = pb.departamento_normalizado
+LEFT JOIN estacionalidad_depto ed ON prod.mes_num = ed.mes_num AND prod.departamento_normalizado = ed.departamento_normalizado
+LEFT JOIN ultimo_precio_depto upd ON prod.departamento_normalizado = upd.departamento_normalizado
+LEFT JOIN estacionalidad_nacional en ON prod.mes_num = en.mes_num
+LEFT JOIN precio_nacional_mes_hist pnmh ON prod.id_fecha = pnmh.id_fecha;
