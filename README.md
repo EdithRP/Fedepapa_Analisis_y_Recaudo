@@ -44,7 +44,7 @@ Se desarrolló un pipeline de carga utilizando la librería `pandas-gbq` y el SD
 * **Script de Carga:** [Ver Script de Carga en Python](https://github.com/EdithRP/Fedepapa_Analisis_y_Recaudo/blob/main/cargar_bigquery.py) 
 * **Dataset de Destino:** `sgt_fedepapa`.
 
-### Paso 3.2: Creación de Tablas de Dimensión
+### Paso 3.2: Creación de Tablas de Dimensión.
 Para eliminar la redundancia y permitir un análisis temporal y geográfico preciso, se crearon tablas maestras mediante SQL:
 
 * **Dimensión Tiempo (`dim_tiempo`)**: Centraliza la jerarquía de Año, Mes (en español), Semestre y Número de Semana. Es vital para unir la producción mensual con los precios semanales. ![dim_tiempo](https://github.com/EdithRP/Fedepapa_Analisis_y_Recaudo/blob/main/img/dim_fecha.png)
@@ -64,11 +64,49 @@ Se optó por este proceso de **Modelado Dimensional (Star Schema)** en BigQuery 
 1.  **Optimización en Power BI**: Los modelos en estrella son significativamente más rápidos y eficientes para el motor DAX, evitando relaciones de "muchos a muchos".
 2.  **Integridad de Datos**: Al centralizar los nombres de meses y departamentos en tablas únicas, se garantiza que no existan inconsistencias al filtrar la información.
 3.  **Preparación para el Análisis**: Al realizar la conversión de unidades (Ton a Kg) y la limpieza geográfica en el Warehouse (SQL), se entrega un dato "listo para consumir", cumpliendo con los estándares de un entorno profesional de Ingeniería de Datos.
+   
+### Predicción de Precios y Producción
+Se desarrolló una consulta avanzada para estimar el valor económico del recaudo potencial. 
+* **Lógica SQL:** Se implementaron cálculos de tendencias históricas y proyecciones basadas en la producción departamental.
+* **Acceso a la Consulta:** Puedes consultar el script de predicción en el siguiente enlace:
+  [🔗 Ver Consulta de Predicción en BigQuery](https://console.cloud.google.com/bigquery?sq=79272127263:ad0ecf4e0e834d75b5a7a91df9e9fc41)
+---
+
+## 🚀 ## 📊 Análisis y Actividades (Power BI)
+
+El análisis se dividió en tres ejes fundamentales para responder a las necesidades de la dirección de Fedepapa:
+
+### 1. Brechas entre Recaudo Potencial y Observado
+Se evaluó la eficacia del recaudo contrastando lo estimado versus lo efectivamente ingresado al fondo.
+* **Hallazgo Crítico:** Se detectó una anomalía en los meses de julio y agosto, donde la incidencia de intereses de mora alcanza picos del **0.8%**, sugiriendo una ventana de riesgo de liquidez estacional.
+
+### 2. Estabilidad y Volatilidad
+Para medir la consistencia del recaudo, se implementó el **Coeficiente de Variación (CV)**.
+* **Resultado:** El análisis permite diferenciar entre una baja gestión de cobro y una falta de calidad en la información (meses con datos de producción incompletos).
+
+### 3. Concentración del Recaudo (Análisis de Riesgo)
+Evaluamos qué tan dependiente es el Fondo de sus principales recaudadores.
+* **Índice HHI:** Se obtuvo un valor de **337.18**, lo que clasifica al sistema como **altamente diversificado**. Esto reduce el riesgo sistémico ante el incumplimiento de una sola entidad.
+* **Curva de Pareto (80/20):** El Top 10 de recaudadores concentra aproximadamente el **47%** del recaudo total.
 
 ---
 
-## 🚀 4. Actividades de la Prueba
-1. **Actividad 1**: Estimación mensual del recaudo potencial integrando producción y precios.
-   
-3. **Actividad 2**: Análisis de brechas (Potencial vs Real) y volatilidad.
-4. **Actividad 3**: Cálculo de concentración (HHI) y segmentación de recaudadores.
+## 🛠️ Diccionario de Medidas DAX Clave
+
+Para garantizar la precisión estadística, se desarrollaron las siguientes medidas:
+
+* **Índice de Concentración (HHI):** Calcula la atomización del mercado de recaudo.
+* **CV Volatilidad:** Mide la dispersión relativa para identificar la estabilidad financiera.
+* **% Participación Acumulada:** Lógica para la construcción de la curva de Pareto.
+
+## 📂 Estructura del Reporte
+
+El archivo `.pbix` está organizado en las siguientes hojas:
+1. **Dashboard Ejecutivo:** Vista de alto nivel con KPIs de cumplimiento nacional.
+2. **Análisis Territorial:** Detalle de brechas por departamento y mes.
+3. **Gestión de Recaudadores:** Análisis de concentración, Ranking y HHI.
+
+## 💡 Conclusiones de Negocio
+1. **Focalización:** Se recomienda centrar la auditoría en el Top 10 de recaudadores, ya que representan casi la mitad del ingreso del fondo.
+2. **Calidad del Dato:** Es imperativo estandarizar el reporte de producción en departamentos menores para eliminar "falsas brechas" en el análisis de eficiencia, debido a que se observa que en algunos departamentos el recaudo es mucho mayor al recaudo Potencial.
+
